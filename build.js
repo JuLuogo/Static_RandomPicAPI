@@ -111,35 +111,47 @@ function build() {
     window['getRandomPic' + type.toUpperCase()] = getRandomUrl;
 
     // Auto-replace logic
-    // Finds elements with src="https://random:{type}" or href="https://random:{type}" and updates them
-    document.addEventListener('DOMContentLoaded', function() {
-        var url = getRandomUrl();
-        var placeholder = 'https://random:' + type;
-        
-        // Update elements with special href
-        var linkElements = document.querySelectorAll('[href="' + placeholder + '"]');
-        linkElements.forEach(function(el) {
-            el.href = url;
-        });
+        // Global search and replace for the placeholder in all attributes and text nodes
+        document.addEventListener('DOMContentLoaded', function() {
+            var url = getRandomUrl();
+            var placeholder = 'https://random:' + type;
+            var regex = new RegExp(placeholder, 'g');
+            
+            // 1. Scan all elements and their attributes
+            var allElements = document.getElementsByTagName('*');
+            for (var i = 0; i < allElements.length; i++) {
+                var el = allElements[i];
+                // Skip script tags to avoid replacing source code if it happens to match (though unlikely in this context)
+                if (el.tagName === 'SCRIPT') continue;
 
-        // Update elements with special src
-        var srcElements = document.querySelectorAll('[src="' + placeholder + '"]');
-        srcElements.forEach(function(el) {
-            el.src = url;
-        });
-
-        // Update elements with style containing the placeholder (e.g. background-image)
-        var styleElements = document.querySelectorAll('[style*="' + placeholder + '"]');
-        styleElements.forEach(function(el) {
-            var style = el.getAttribute('style');
-            if (style && style.indexOf(placeholder) !== -1) {
-                el.setAttribute('style', style.replace(new RegExp(placeholder, 'g'), url));
+                var attributes = el.attributes;
+                if (attributes) {
+                    for (var j = 0; j < attributes.length; j++) {
+                        var attr = attributes[j];
+                        if (attr.value && attr.value.indexOf(placeholder) !== -1) {
+                            attr.value = attr.value.replace(regex, url);
+                        }
+                    }
+                }
             }
+
+            // 2. Scan text nodes
+            if (document.body) {
+                var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
+                var node;
+                while (node = walker.nextNode()) {
+                    // Skip if parent is script or style
+                    if (node.parentNode && (node.parentNode.tagName === 'SCRIPT' || node.parentNode.tagName === 'STYLE')) continue;
+                    
+                    if (node.nodeValue && node.nodeValue.indexOf(placeholder) !== -1) {
+                        node.nodeValue = node.nodeValue.replace(regex, url);
+                    }
+                }
+            }
+            
+            console.log('Random Pic ' + type.toUpperCase() + ' globally replaced placeholder: ' + placeholder);
         });
-        
-        console.log('Random Pic ' + type.toUpperCase() + ' updated elements with placeholder: ' + placeholder);
-    });
-})();
+    })();
 `;
         fs.writeFileSync(path.join(DIST, `random-${type}.js`), jsContent.trim());
     });
@@ -183,28 +195,33 @@ function createDemoHtml() {
 
     <div class="card">
         <h2>Horizontal Image (横屏)</h2>
-        <!-- The JS will find src="https://random:h" and update src -->
+        <!-- src replacement -->
         <img src="https://random:h" alt="Loading random horizontal image..." />
         <br><br>
-        <p>Link example (HTML Form/Link replacement):</p>
-        <!-- The JS will find href="https://random:h" and update href -->
+        
+        <p>Link example (href replacement):</p>
+        <!-- href replacement -->
         <a href="https://random:h" class="btn" target="_blank">Open Random Horizontal Image</a>
         <br><br>
+        
         <p>Background Image example (style replacement):</p>
-        <!-- The JS will find style*="https://random:h" and update it -->
+        <!-- style replacement -->
         <div class="bg-box" style="background-image: url('https://random:h');">
             Background Image
         </div>
+        <br><br>
+
+        <p>Any Attribute (e.g. data-url):</p>
+        <!-- data-url replacement -->
+        <input type="text" value="https://random:h" style="width: 100%;" readonly>
     </div>
 
     <div class="card">
         <h2>Vertical Image (竖屏)</h2>
-        <!-- The JS will find src="https://random:v" and update src -->
+        <!-- Text Node Replacement Example -->
+        <p>Current Random URL: <strong>https://random:v</strong></p>
+        
         <img src="https://random:v" alt="Loading random vertical image..." style="max-height: 400px;" />
-        <br><br>
-        <p>Link example:</p>
-        <!-- The JS will find href="https://random:v" and update href -->
-        <a href="https://random:v" class="btn" target="_blank">Open Random Vertical Image</a>
     </div>
 
     <!-- Import the generated scripts -->
