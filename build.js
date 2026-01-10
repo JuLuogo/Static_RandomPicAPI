@@ -57,7 +57,7 @@ function build() {
     fs.mkdirSync(DIST_RI, { recursive: true });
 
     // 2. Process Folders
-    const types = ['h', 'v'];
+    const types = ['h', 'v', 'j'];
     let counts = {};
     
     types.forEach(type => {
@@ -101,24 +101,21 @@ function build() {
     var domain = '${config.domain}';
     
     // State management for session consistency
-    var sessionRandomH = null;
-    var sessionRandomV = null;
+    var sessionRandom = {};
 
     // Helper: Get random URL for a type (h or v), persistent per session
     function getRandomUrl(type) {
         if (!counts[type] || counts[type] === 0) return '';
         
         // Return existing session URL if available
-        if (type === 'h' && sessionRandomH) return sessionRandomH;
-        if (type === 'v' && sessionRandomV) return sessionRandomV;
+        if (sessionRandom[type]) return sessionRandom[type];
 
         // Generate new if not exists
         var num = Math.floor(Math.random() * counts[type]) + 1;
         var url = domain + '/ri/' + type + '/' + num + '.webp';
 
         // Save to session state
-        if (type === 'h') sessionRandomH = url;
-        if (type === 'v') sessionRandomV = url;
+        sessionRandom[type] = url;
 
         return url;
     }
@@ -126,6 +123,7 @@ function build() {
     // Expose global functions
     window.getRandomPicH = function() { return getRandomUrl('h'); };
     window.getRandomPicV = function() { return getRandomUrl('v'); };
+    window.getRandomPicJ = function() { return getRandomUrl('j'); };
 
     // 1. Logic for Background (Customized based on user request)
     function setRandomBackground() { 
@@ -170,6 +168,8 @@ function build() {
                 img.src = getRandomUrl('h');
             } else if (alt === 'random:v' || (src && src.indexOf('/random/v') !== -1)) {
                 img.src = getRandomUrl('v');
+            } else if (alt === 'random:j' || (src && src.indexOf('/random/j') !== -1)) {
+                img.src = getRandomUrl('j');
             }
         }
     }
@@ -182,7 +182,7 @@ function build() {
             if (el.id === 'bg-box') return;
 
             var type = el.getAttribute('data-random-bg');
-            if (type === 'h' || type === 'v') {
+            if (counts[type]) {
                 var url = getRandomUrl(type);
                 if (url) {
                     var img = new Image();
